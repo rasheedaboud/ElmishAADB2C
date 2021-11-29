@@ -1,2 +1,5 @@
 Saturn
 Fable.Remoting.Giraffe
+Microsoft.AspNetCore.Authentication.JwtBearer
+Microsoft.Identity.Web
+Microsoft.AspNetCore.Authentication.OpenIdConnect

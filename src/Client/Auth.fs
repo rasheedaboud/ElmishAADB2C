@@ -218,11 +218,12 @@ type UnauthenticatedTemplate  =
 /// CHANGE ME
 /// MORE INFO https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant
 /// There are a ton of possible options.
+/// Sugest parameterise this into config file that can be loaded
 /// //////////////////////////////////////
 let msalConfig ={|
     auth={|
           clientId=""
-          authority= "https://<DOMAIN>.b2clogin.com/<DOMAIN>.onmicrosoft.com/<SIGN_IN_FLOW>"
+          authority= "https://<DOMAIN>.b2clogin.com/<DOMAIN>.onmicrosoft.com/<SIGN_IN_FLOW"
           knownAuthorities=[|"https://<DOMAIN>.b2clogin.com"|]
           redirectUri= "https://localhost:8080/"
           postLogoutRedirectUri = "https://localhost:8080/"|};
@@ -230,15 +231,6 @@ let msalConfig ={|
   |}
 
 
-let forgotPassword (error:string) =
-  error.Contains("AADB2C90118")
-
-///Use this to request token from auth server
-let tokenRequest account = {
-      account= account                        
-      scopes= [||]
-      forceRefresh=false
-  }
 
 ///Send request to server to reset user password.
 let forgotPasswordRequest:RedirectRequest = {
@@ -252,6 +244,11 @@ let editProfileRequest:RedirectRequest = {
     authority=Some "https://<DOMAIN>.b2clogin.com/<DOMAIN>.onmicrosoft.com/<EDIT_PROFILE_FLOW>"
     postLogoutRedirectUri=Some "https://localhost:8080/" 
 }
+
+
+let forgotPassword (error:string) =
+  error.Contains("AADB2C90118")
+
 
 let client = PublicClientApplication(msalConfig) :> IPublicClientApplication
 
@@ -278,3 +275,19 @@ let CreateUser (token:IdTokenClaims option):User =
             DisplayName =u.DisplayName
         }
     | None -> User.Default
+
+///Use this to request token from auth server
+let tokenRequest =
+    let accounts = client.getAllAccounts()
+    if accounts.Length > 0 then
+        {
+              account= accounts.[0]                        
+              scopes= [||]
+              forceRefresh=false
+        }
+    else
+        {
+              account= AccountInfo.Default()                      
+              scopes= [||]
+              forceRefresh=false
+        }

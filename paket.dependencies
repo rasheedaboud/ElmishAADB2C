@@ -4,7 +4,11 @@ storage: none
 
 nuget Fable.Promise
 nuget Fable.Remoting.Giraffe
+nuget Feliz.Router
 nuget Feliz.UseElmish
+nuget Microsoft.AspNetCore.Authentication.JwtBearer 5.0.12
+nuget Microsoft.AspNetCore.Authentication.OpenIdConnect 5.0.12
+nuget Microsoft.Identity.Web 1.18.0
 nuget Saturn
 nuget Expecto
 
