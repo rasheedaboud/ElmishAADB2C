@@ -51,3 +51,116 @@ You will find more documentation about the used F# components at the following p
 * [Saturn](https://saturnframework.org/)
 * [Fable](https://fable.io/docs/)
 * [Elmish](https://elmish.github.io/elmish/)
+
+## Updating Sample
+Follow these steps to setup B2C tennant etc. [Docs](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant).  
+
+Navigate to Auth.fs in CLient Project and update AADB2C configuration  
+
+```
+let msalConfig ={|
+    auth={|
+          clientId=""
+          authority=""
+          knownAuthorities=[|""|]
+          redirectUri= "https://localhost:8080/"
+          postLogoutRedirectUri = "https://localhost:8080/"|};
+    cache={|cacheLocation="sessionStorage"; storeAuthStateInCookie=false|}
+  |}
+```
+
+Navigate to Server project and update `appsettings.json` 
+```
+{
+    //Reanme the AzureAD if you're using AAD
+    "AzureAdB2C": {
+        "Instance": "https://<DOMAIN>.b2clogin.com",
+        "ClientId": "<API CLIENT ID>",
+        "Domain": "<DOMAIN>.onmicrosoft.com",
+        "SignUpSignInPolicyId": "", //OMIT IF USING AAD
+        "ResetPasswordPolicyId": "", //OMIT IF USING AAD
+        "EditProfilePolicyId": "", //OMIT IF USING AAD
+        "B2CAppExtentionClientId": "", // If you're using B2C with claims. Leave this out if using AAD
+        "TenantId": "",
+        "ClientSecret": "" //USE ONLY IF NEEDED
+    }
+}
+```
+
+Follow instrunctions above to start safe app.
+
+Try logging in.
+
+## Supported Actions
+
+For this sample only following methods are available on PublicClientApplication
+
+```
+[<Import("PublicClientApplication", from="@azure/msal-browser")>]
+type PublicClientApplication (config:obj) =
+    abstract member loginRedirect: request:obj -> Promise<unit>;
+    abstract member loginPopup: request:obj -> Promise<AuthenticationResult option>
+    abstract member logout: unit-> unit
+    abstract member getAllAccounts: unit-> account[] 
+    abstract member acquireTokenSilent: request:obj -> Promise<AuthenticationResult>;
+    abstract member getAccountByUsername:userName: string -> AccountInfo option
+```
+Extend this as required.
+
+To show or hide UI when user in authenticated or not use either of the following
+```
+AuthenticatedTemplate.create[
+    AuthenticatedTemplate.children[
+
+    ]
+]
+
+UnauthenticatedTemplate.create[
+    UnauthenticatedTemplate.children[
+
+    ]
+] 
+```
+## Claims
+
+In Auth.fs use type IdTokenClaims to retrive information about response from auth request. Initial model only has minimal claims faimily_name and given_name. Extend this as you see fit.
+```
+type IdTokenClaims =
+  {
+    aud: string
+    auth_time: string
+    emails: string[]
+    exp: int
+    family_name: string
+    given_name: string
+    iat: int
+    iss: string
+    nbf: int
+    nonce: string
+    sub: string
+    tfp: string
+    ver: string }
+```
+
+## Token
+use `aquireTokenSilent(request:TokenRequest)` to try and get JWT Token from B2C. This can be used to make authenticated request to server.
+
+use TokenRequest type to request specific scopes
+```
+type TokenRequest ={
+  account:AccountInfo
+  scopes:string[]
+  forceRefresh:bool
+}
+```
+AccountInfo can be aquired by calling `getAccountByUsername()` on PublicClientApplication instance.
+
+
+## Hooks
+
+the following react hook from msal react are supported;  
+
+1. useAccount
+2. useIsAuthenticated
+3. useMsal
+4. useMsalAuthentication
