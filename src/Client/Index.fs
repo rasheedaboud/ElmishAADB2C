@@ -79,11 +79,10 @@ let logout() =
     client.logout()
     User.Default
 
- 
 
 let login() =
     promise {
-        let! result = client.loginPopup()
+        let! result = client.loginPopup(popupRequest)
         match result with
         | Ok idToken -> return SetUser 
         | Error msg ->
@@ -100,9 +99,11 @@ let update (msg: Msg) (model: Model) : Model * Cmd<Msg> =
         | _ -> {model with CurrentPage=Page.NotFound},Cmd.none
     | LoginError err->
         console.log err
-        {model with User=User.Default; IsLoggedIn=false},Cmd.none
+        {model with CurrentPage=Page.Home; User=User.Default; IsLoggedIn=false},Cmd.none
     | Login ->       
-        model, Cmd.OfPromise.either login () ( fun _ -> SetUser)(fun err -> LoginError err.Message)
+        model, Cmd.OfPromise.either login () 
+                                    ( fun _ -> SetUser)
+                                    (fun err -> LoginError err.Message)
     | Logout ->        
         {model with User = logout();IsLoggedIn=false},Cmd.none
     | SetUser ->
