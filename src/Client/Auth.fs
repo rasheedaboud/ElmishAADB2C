@@ -120,6 +120,84 @@ type AuthenticationResult = {
     msGraphHost: string;
 }
 
+type SilentRequest = {
+    scopes: string [] option
+    redirectUri: string option;
+    extraQueryParameters: Dictionary<string,string> option;
+    tokenQueryParameters: Dictionary<string,string> option;
+    authority: string option;
+    account: AccountInfo option;
+    correlationId: string option;
+    forceRefresh: bool;
+} with static member Default = {
+        scopes= None
+        redirectUri= None;
+        extraQueryParameters= None;
+        tokenQueryParameters= None;
+        authority= None;
+        account= None;
+        correlationId= None;
+        forceRefresh= false;
+    }
+
+type [<StringEnum>] [<RequireQualifiedAccess>] PopUpRequestPrompt =
+    | [<CompiledName("login")>]Login
+    | [<CompiledName("none")>]``None``
+    | [<CompiledName("consent")>]Consent
+    | [<CompiledName("select_account")>]SelectAccount
+    | [<CompiledName("create")>]Create
+
+type PopupPosition = {
+    top: int;
+    left: int;
+}
+
+type PopupSize = {
+    height: int;
+    width: int;
+};
+
+type PopupWindowAttributes = {
+    popupSize: PopupSize option
+    popupPosition: PopupPosition option
+}
+
+type  PopupRequest = {
+    scopes: string[] option              
+    authority:string option               
+    correlationId:Guid option              
+    redirectUri:string option             
+    extraScopesToConsent: string[] option       
+    state:string option                     
+    prompt: PopUpRequestPrompt                    
+    loginHint:string option                  
+    sid:string option                        
+    domainHint:string option                 
+    extraQueryParameters: Dictionary<string,string> option;       
+    tokenQueryParameters: Dictionary<string,string> option;       
+    claims:string option                     
+    nonce:string option                       
+    popupWindowAttributes:PopupWindowAttributes option     
+}
+    with static member Default = {
+            scopes= Some [||]              
+            authority=Some ""               
+            correlationId=Some Guid.Empty              
+            redirectUri=Some ""             
+            extraScopesToConsent= Some [||]       
+            state=Some ""                     
+            prompt= PopUpRequestPrompt.Login                    
+            loginHint=Some ""                  
+            sid=Some ""                        
+            domainHint=Some ""                 
+            extraQueryParameters= None ;       
+            tokenQueryParameters= None;       
+            claims=Some ""                     
+            nonce=Some ""                       
+            popupWindowAttributes= None     
+        }
+
+
 type RedirectRequest = {
     authority:string option
     account: AccountInfo option
@@ -135,23 +213,27 @@ type AuthError = {
 
 type IPublicClientApplication = 
     abstract member loginRedirect: request:RedirectRequest -> unit;
-    abstract member loginPopup: request:obj -> Promise<Result<AuthenticationResult,AuthError>>
+    abstract member loginPopup: request:PopupRequest -> Promise<Result<AuthenticationResult,AuthError>>
     abstract member logout: unit-> unit
     abstract member logoutRedirect: request:RedirectRequest -> Promise<unit>
     abstract member getAllAccounts: unit-> AccountInfo[] 
-    abstract member acquireTokenSilent: request:obj -> Promise<AuthenticationResult option>;
+    abstract member acquireTokenSilent: request:SilentRequest -> Promise<AuthenticationResult option>;
     abstract member getAccountByUsername:userName: string -> AccountInfo option
+    abstract member setActiveAccount:account: AccountInfo option -> unit
+    abstract member getActiveAccount:unit -> AccountInfo option
 
 [<Import("PublicClientApplication", from="@azure/msal-browser")>]
 type PublicClientApplication (config:obj) =
     interface IPublicClientApplication with
-      member _.loginRedirect(request:RedirectRequest) = jsNative  
-      member _.loginPopup(request:obj) = jsNative
-      member _.logout() = jsNative
-      member _.logoutRedirect(request:RedirectRequest) = jsNative
-      member _.getAllAccounts() : AccountInfo[] = jsNative
-      member _.acquireTokenSilent(request:obj) = jsNative
-      member _.getAccountByUsername(userName:string) = jsNative
+        member _.loginRedirect(request:RedirectRequest) = jsNative  
+        member _.loginPopup(request:PopupRequest) = jsNative
+        member _.logout() = jsNative
+        member _.logoutRedirect(request:RedirectRequest) = jsNative
+        member _.getAllAccounts() : AccountInfo[] = jsNative
+        member _.acquireTokenSilent(request:SilentRequest) = jsNative
+        member _.getAccountByUsername(userName:string) = jsNative
+        member _.setActiveAccount(account: AccountInfo option) = jsNative
+        member _.getActiveAccount():AccountInfo option = jsNative
 
 
 
@@ -277,17 +359,23 @@ let CreateUser (token:IdTokenClaims option):User =
     | None -> User.Default
 
 ///Use this to request token from auth server
-let tokenRequest =
+let tokenRequest :SilentRequest=
     let accounts = client.getAllAccounts()
     if accounts.Length > 0 then
-        {
-              account= accounts.[0]                        
-              scopes= [||]
-              forceRefresh=false
+        {   SilentRequest.Default with
+                account= Some accounts.[0]                        
+                scopes= Some [||]
+                forceRefresh=false
         }
     else
-        {
-              account= AccountInfo.Default()                      
-              scopes= [||]
-              forceRefresh=false
+        {   SilentRequest.Default with
+                account= None                        
+                scopes= None
+                forceRefresh=false
         }
+let popupRequest = 
+    {
+        PopupRequest.Default with
+            authority =Some msalConfig.auth.authority
+            redirectUri = Some msalConfig.auth.redirectUri
+    }

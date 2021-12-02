@@ -30,7 +30,8 @@ type Msg =
     | NoTodos
     | ErrorLoadingTodos of string
 
-let requestToken() =   
+let requestToken() = 
+
     client.acquireTokenSilent(tokenRequest)
     |> Promise.map( fun result ->
     match result with
@@ -62,18 +63,18 @@ let update msg state=
         state,Cmd.ofMsg GetToken
     | _, GetToken ->
         {state with LoadingState=LoadingState.LoadingStarted},
-        Cmd.OfAsync.either requestToken ()
-                        (fun x -> LoadingStarted x)
-                        (fun error->ErrorLoadingTodos error.Message)
+        Cmd.OfAsync.either  requestToken ()
+                            (fun x -> LoadingStarted x)
+                            (fun error->ErrorLoadingTodos error.Message)
 
     | _, NoTodos -> {state with Todos=[]},Cmd.none
     | _, LoadingStarted token ->
 
         let api = todosApi(token)
         {state with LoadingState=LoadingState.LoadingStarted},
-            Cmd.OfAsync.either api.getTodos ()
-                            (fun x -> LoadingFinished x)
-                            (fun error->ErrorLoadingTodos error.Message)
+            Cmd.OfAsync.either  api.getTodos ()
+                                (fun x -> LoadingFinished x)
+                                (fun error->ErrorLoadingTodos error.Message)
     | _, LoadingFinished result ->
 
         match result with
@@ -86,15 +87,16 @@ let update msg state=
                 state, Cmd.ofMsg (NotAuthorized.value |> ErrorLoadingTodos)
             | ValidationError->
                 state, Cmd.ofMsg (ValidationError.value |> ErrorLoadingTodos)
-    | _, ErrorLoadingTodos error -> {state with ErrorMessage=error; LoadingState=LoadingState.LoadingFailed},Cmd.none
+    | _, ErrorLoadingTodos error -> 
+        {state with ErrorMessage=error; LoadingState=LoadingState.LoadingFailed},Cmd.none
 
 
 [<ReactComponent>]
 let Home() =
     let state, dispatch = React.useElmish(init, update, [| |])
     Html.div [
-        prop.classes [ css.``container-fluid``
-                       css.``mt-5``]
+        prop.classes [  css.``container-fluid``
+                        css.``mt-5``]
         prop.children[
             Html.button [
                 prop.classes [  css.btn
