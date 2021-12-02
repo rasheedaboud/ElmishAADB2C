@@ -14,6 +14,10 @@ open Microsoft.Identity.Web
 open Shared
 open Microsoft.Extensions.Logging
 open Giraffe.HttpStatusCodeHandlers
+open Saturn
+open Microsoft.Extensions.Hosting
+open FSharp.Control.Tasks
+open Giraffe.HttpStatusCodeHandlers
 
 type Storage() =
     let todos = ResizeArray<_>()
@@ -75,36 +79,95 @@ let webApp =
     |> Remoting.fromContext todosApi
     |> Remoting.buildHttpHandler
 
+let notLoggedIn =
+    RequestErrors.UNAUTHORIZED
+        "AzureAdB2C"
+        "<SCOPE>"
+        "You must be logged in."
 
-type Startup(configuration: IConfiguration) =
+let mustBeLoggedIn = requiresAuthentication notLoggedIn
+
+let authorized =mustBeLoggedIn >> webApp
+
+let router = router {
+    forward "/api" authorized}
     
-    member _.Configuration = configuration
+/////////////////////////////////////////////////
+/// SATURN CONFIG
+////////////////////////////////////////////////
+let configureHost (config:IHostBuilder) =
+    config.ConfigureAppConfiguration(fun _ builder ->
+                            builder.AddJsonFile("appsettings.json", true, true)|>ignore)
+    
 
-    member _.ConfigureServices(services: IServiceCollection) =
-
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                    .AddMicrosoftIdentityWebApi(configuration.GetSection("AzureAdB2C")) |> ignore
-        services.AddGiraffe() |> ignore
-
-    member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) =
-        if (env.IsDevelopment()) then
-            app.UseDeveloperExceptionPage() |> ignore
-        app
-           .UseAuthentication()
-           .UseAuthorization()
-           .UseGiraffe webApp
+let configureServices (services:IServiceCollection) =
+    let configuration = services.BuildServiceProvider().GetService<IConfiguration>()
+    services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+             .AddMicrosoftIdentityWebApi(configuration.GetSection("AzureAdB2C")) |> ignore
+    services.AddGiraffe() 
 
 
-let CreateHostBuilder args =
-    Host.CreateDefaultBuilder(args)
-        .ConfigureWebHostDefaults(fun webBuilder ->
-            webBuilder.UseStartup<Startup>()
-                      .ConfigureAppConfiguration(fun context builder ->
-                        builder.AddJsonFile("appsettings.json", true, true)|>ignore) |>ignore
-        )
+let configureApp (app:IApplicationBuilder) =
+    let env = app.ApplicationServices.GetService<IHostEnvironment>()
+    if (env.IsDevelopment()) then
+        app.UseDeveloperExceptionPage() |> ignore
+    app
+        .UseAuthentication()
+        .UseAuthorization()
+        .UseGiraffe webApp
+    app
 
-[<EntryPoint>]
-let main args =
-    CreateHostBuilder(args).Build().Run()
 
-    0
+
+let app =
+    application {
+        url "http://0.0.0.0:8085"
+        use_router router
+        host_config configureHost
+        service_config configureServices
+        app_config configureApp
+        memory_cache
+        use_static "public"
+        use_gzip
+    }
+
+run app
+
+
+/////////////////////////////////////////////////
+/// GIRAFFE CONFIG WITH STARTUP
+////////////////////////////////////////////////
+
+
+//type Startup(configuration: IConfiguration) =
+    
+//    member _.Configuration = configuration
+
+//    member _.ConfigureServices(services: IServiceCollection) =
+
+//        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+//                    .AddMicrosoftIdentityWebApi(configuration.GetSection("AzureAdB2C")) |> ignore
+//        services.AddGiraffe() |> ignore
+
+//    member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) =
+//        if (env.IsDevelopment()) then
+//            app.UseDeveloperExceptionPage() |> ignore
+//        app
+//           .UseAuthentication()
+//           .UseAuthorization()
+//           .UseGiraffe webApp
+
+
+//let CreateHostBuilder args =
+//    Host.CreateDefaultBuilder(args)
+//        .ConfigureWebHostDefaults(fun webBuilder ->
+//            webBuilder.UseStartup<Startup>()
+//                      .ConfigureAppConfiguration(fun context builder ->
+//                        builder.AddJsonFile("appsettings.json", true, true)|>ignore) |>ignore
+//        )
+
+//[<EntryPoint>]
+//let main args =
+//    CreateHostBuilder(args).Build().Run()
+
+//    0
